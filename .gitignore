@@ -4,3 +4,5 @@ send.log
 .venv/
 .venv/*
 __pycache__/
+backup_reminder.sh
+table_reminder.sql
