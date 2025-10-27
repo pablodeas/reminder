@@ -7,7 +7,7 @@
 #   Last Change:    Function to send for telegram bot
 
 """
-    TODO:   
+    TODO: Acrescentar opção no send para escolher entre enviar para email, telegram ou os dois
 """
 
 import smtplib
@@ -162,31 +162,31 @@ def send():
             print(f"> Error listing reminders: {e}")
             return []
         
-    try:
-        #Mail
-        reminders = list_reminders()
-        if not reminders:
-            print("> There is no reminders to send.")
-            return
-        
-        message = MIMEMultipart()
-        message['Subject'] = "### LEMBRETES ###"
-        message['From'] = mail
-        message['To'] = mail
-        body = "\n".join([f"> {r[0]}" for r in reminders])
-        #body = "\n".join([f"> {r[0]}" for r in reminders])
-        message.attach(MIMEText(body, 'plain'))
-
-        s = smtplib.SMTP('smtp.gmail.com', 587)
-        s.starttls()
-        s.login(mail, passw)
-        s.send_message(message)
-        print(f"> SUCCESS - Mail")
-    except Exception as e:
-        print(f"> Error: {str(e)}.")
+    # -> Mail
+    #try:
+    #    
+    #    reminders = list_reminders()
+    #    if not reminders:
+    #        print("> There is no reminders to send.")
+    #        return
+    #    
+    #    message = MIMEMultipart()
+    #    message['Subject'] = "### LEMBRETES ###"
+    #    message['From'] = mail
+    #    message['To'] = mail
+    #    body = "\n".join([f"> {r[0]}" for r in reminders])
+    #    #body = "\n".join([f"> {r[0]}" for r in reminders])
+    #    message.attach(MIMEText(body, 'plain'))
+    #    s = smtplib.SMTP('smtp.gmail.com', 587)
+    #    s.starttls()
+    #    s.login(mail, passw)
+    #    s.send_message(message)
+    #    print(f"> SUCCESS - Mail")
+    #except Exception as e:
+    #    print(f"> Error: {str(e)}.")
     
+    # -> Telegram
     try:
-        # Telegram
         reminders = list_reminders()
         if reminders:
             markdown_message = "📋 *LEMBRETES DO DIA*\n"
