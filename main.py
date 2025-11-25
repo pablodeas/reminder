@@ -120,20 +120,29 @@ def insert(message):
     except Exception as e:
         print(f"> An error occurred: {e}")
 
-@cli.command(help="> Delete an item reminders.")
-@click.argument('id', type=float)
+@cli.command(help="Delete an item reminders.")
+@click.argument('id', type=int)
 def delete(id):
     try:
         cur, conn = connect_db(None, None)
-        cur.execute("""
-            DELETE FROM public.reminder where Id = %s;
-            """,
-            (id,))
-        conn.commit()
-        print(f"> Reminder > {id} < deleted.")
+        
+        # Verifica se o registro existe antes de deletar
+        cur.execute("SELECT Id FROM public.reminder WHERE Id = %s;", (id,))
+        if cur.fetchone():
+            cur.execute("DELETE FROM public.reminder WHERE Id = %s;", (id,))
+            conn.commit()
+            print(f"> Reminder > {id} < deleted.")
+        else:
+            print(f"> Reminder {id} not found.")
 
     except Exception as e:
         print(f"> An error occurred: {e}")
+    finally:
+        # Fechar conexão com o banco de dados
+        if 'cur' in locals():
+            cur.close()
+        if 'conn' in locals():
+            conn.close()
 
 @cli.command(help="> Delete all reminders.")
 def clear():
