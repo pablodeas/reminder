@@ -1,12 +1,14 @@
 # reminder
 
-*reminder* é um sistema Python projetado para enviar e-mails automáticos com lembretes programados. O sistema utiliza uma base de dados PostgreSQL para armazenar os lembretes e um servidor SMTP para enviar os e-mails.
+*reminder* é um sistema Python projetado para enviar e-mails e mensagens no Telegram com lembretes programados. O sistema utiliza uma base de dados PostgreSQL para armazenar os lembretes e oferece múltiplas opções de envio.
 
 ## Para Utilizar
 
-Para que o programa funcione corretamente, é interessante tem um banco de dados postgresql funcionando localmente, seja via docker ou realmente instalado na sua máquina.
+Para que o programa funcione corretamente, é interessante ter um banco de dados PostgreSQL funcionando localmente, seja via Docker ou instalado na sua máquina.
 
-Caso já esteja instalado na sua máquina, crie o arquivo .env e adicione as variáveis. Preencha de acordo.
+### Configuração do Ambiente
+
+Crie o arquivo `.env` e adicione as variáveis. Preencha de acordo com suas configurações:
 
 ```env
 # Credenciais SMTP
@@ -20,9 +22,15 @@ DB_PASSWORD=""
 DB_CONTAINER=""
 HOST="localhost"
 PORT="5433"
+
+# Credenciais Telegram
+BOT_TOKEN=""
+CHAT_ID=""
 ```
 
-Caso você prefira utilizar docker, vai abaixo um exemplo de *compose.yml* para utilização.
+### Usando Docker (Opcional)
+
+Caso prefira utilizar Docker, segue um exemplo de `compose.yml`:
 
 ```yml
 services:
@@ -41,9 +49,9 @@ volumes:
   postgres_data:
 ```
 
-Após subir o container e alterar no .env com as informações corretas, vamos ao script.
+### Instalação e Execução
 
-Para iniciar, execute os seguintes comandos:
+Após configurar o banco de dados e o arquivo `.env`, execute os seguintes comandos:
 
 ```bash
 # Execute um de cada vez para que não ocorram erros
@@ -52,41 +60,74 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Após, o script já está funcional.
+Após a instalação, o script está funcional. Os comandos disponíveis são:
 
 ```bash
+# Listar todos os lembretes
 python main.py list
-python main.py insert ""
+
+# Inserir um novo lembrete
+python main.py insert "SEU LEMBRETE AQUI"
+
+# Deletar um lembrete específico pelo ID
 python main.py delete ID
+
+# Limpar todos os lembretes
 python main.py clear
-python main.py send
+
+# Enviar lembretes (opções disponíveis)
+python main.py send                    # Envia para E-mail e Telegram
+python main.py send mail              # Envia apenas por E-mail
+python main.py send telegram          # Envia apenas para Telegram
 ```
 
-## Link Simbólico
+### Opções de Envio
 
-Caso você tenha reparado, existe um arquivo chamado *reminder.sh*.
+O comando `send` agora oferece três modos de operação:
 
-Eu utilizo esse arquivo para criar um link simbólico para executar o script em qualquer lugar do meu terminal.
+- **Sem parâmetro**: Envia lembretes tanto por E-mail quanto para Telegram
+- **`mail`**: Envia lembretes apenas por E-mail
+- **`telegram`**: Envia lembretes apenas para o Telegram
 
-Segue comandos para criar esse link simbólico (Lembrando sempre de alterar os caminhos para os que correspondem a sua situação).
+## Link Simbólico (Opcional)
+
+Caso queira criar um comando global para o script, utilize o arquivo `reminder.sh` para criar um link simbólico:
 
 ```bash
-# O comando abaixo dá permissão de execução ao arquivo
+# Dá permissão de execução ao arquivo
 chmod 775 reminder.sh 
 
-# O comando abaixo cria o link simbólico e define o comando REMINDER como o nome do executor
+# Cria o link simbólico (ajuste o caminho conforme necessário)
 sudo ln -s $HOME/Projects/python/send_mail_reminder/reminder.sh /bin/reminder
 
-# Para executar
+# Comandos disponíveis via link simbólico
 reminder list
-reminder insert ""
+reminder insert "SEU LEMBRETE"
 reminder delete ID
 reminder clear
 reminder send
+reminder send mail
+reminder send telegram
 ```
 
-Bom, é isso.
+## Funcionalidades
+
+- ✅ Armazenamento de lembretes em banco PostgreSQL
+- ✅ Envio de e-mails automáticos
+- ✅ Envio de mensagens para Telegram
+- ✅ Interface de linha de comando intuitiva
+- ✅ Opção de enviar para ambos ou apenas um canal
+- ✅ Formatação Markdown para mensagens no Telegram
+
+## Dependências
+
+As principais dependências estão listadas no `requirements.txt`:
+- `click` - Interface de linha de comando
+- `psycopg2` - Conexão com PostgreSQL
+- `python-dotenv` - Gerenciamento de variáveis de ambiente
+- `requests` - Requisições HTTP para API do Telegram
+
+---
 
 Para dúvidas ou sugestões, entre em contato:
-[linkedin](https://www.linkedin.com/in/pablodeas/)
-[whatsapp](https://api.whatsapp.com/send?phone=5521966916139)
+[LinkedIn](https://www.linkedin.com/in/pablodeas/) | [WhatsApp](https://api.whatsapp.com/send?phone=5521966916139)
