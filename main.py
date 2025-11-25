@@ -2,12 +2,12 @@
 
 #   Author:         Pablo Andrade
 #   Created:        29/11/2024
-#   Version:        0.0.3
-#   Objective:      Program to send Mail in a specific time to remind me of stuffs
-#   Last Change:    Function to send for telegram bot
+#   Version:        0.0.5
+#   Objective:      Program to send reminders in a specific time to remind me of stuffs
+#   Last Change:    Added option to choose to send only to E-mail, Telegram or both.
 
 """
-    TODO: Acrescentar opção no send para escolher entre enviar para email, telegram ou os dois
+    TODO:
 """
 
 import smtplib
@@ -159,7 +159,8 @@ def clear():
         print(f"> An error occurred: {e}")
 
 @cli.command(help="> Send Mail.")
-def send():
+@click.argument('type', type=str, default='')
+def send(type):
     def list_reminders():
         try:
             cur, conn = connect_db(None, None)
@@ -170,57 +171,69 @@ def send():
         except Exception as e:
             print(f"> Error listing reminders: {e}")
             return []
-        
-    # -> Mail
-    #try:
-    #    
-    #    reminders = list_reminders()
-    #    if not reminders:
-    #        print("> There is no reminders to send.")
-    #        return
-    #    
-    #    message = MIMEMultipart()
-    #    message['Subject'] = "### LEMBRETES ###"
-    #    message['From'] = mail
-    #    message['To'] = mail
-    #    body = "\n".join([f"> {r[0]}" for r in reminders])
-    #    #body = "\n".join([f"> {r[0]}" for r in reminders])
-    #    message.attach(MIMEText(body, 'plain'))
-    #    s = smtplib.SMTP('smtp.gmail.com', 587)
-    #    s.starttls()
-    #    s.login(mail, passw)
-    #    s.send_message(message)
-    #    print(f"> SUCCESS - Mail")
-    #except Exception as e:
-    #    print(f"> Error: {str(e)}.")
     
-    # -> Telegram
-    try:
-        reminders = list_reminders()
-        if reminders:
-            markdown_message = "📋 *LEMBRETES DO DIA*\n"
-            markdown_message += "═" * 25 + "\n"
-            for i, reminder in enumerate(reminders, 1):
-                #markdown_message += f"🔹 *{i}.* {reminder[0]}\n\n"
-                markdown_message += f"🔹{reminder[0]}\n"
-            markdown_message += "─" * 25 + "\n"
-        else:
-            markdown_message = "✅ *Nenhum lembrete para hoje!*\n\n🎉 Você está em dia!"
+    def send_telegram():
+        try:
+            reminders = list_reminders()
+            if reminders:
+                markdown_message = "📋 *LEMBRETES DO DIA*\n"
+                markdown_message += "═" * 25 + "\n"
+                for i, reminder in enumerate(reminders, 1):
+                    #markdown_message += f"🔹 *{i}.* {reminder[0]}\n\n"
+                    markdown_message += f"🔹{reminder[0]}\n"
+                markdown_message += "─" * 25 + "\n"
+            else:
+                markdown_message = "✅ *Nenhum lembrete para hoje!*\n\n🎉 Você está em dia!"
 
-        result = send_telegram_message(
-            bot_token=BOT_TOKEN,
-            chat_id=CHAT_ID,
-            message=markdown_message,
-            parse_mode="Markdown"
-        )
-        print("> SUCCESS - Telegram")
+            result = send_telegram_message(
+                bot_token=BOT_TOKEN,
+                chat_id=CHAT_ID,
+                message=markdown_message,
+                parse_mode="Markdown"
+            )
+            print("> SUCCESS - Telegram")
     
-    except Exception as e:
-        print(f"> Error: {str(e)}")
+        except Exception as e:
+            print(f"> Error: {str(e)}")
+        finally:
+            if 's' in locals():
+                s.quit()
 
-    finally:
-        if 's' in locals():
-            s.quit()
+    def send_mail():
+        try:
+
+            reminders = list_reminders()
+            if not reminders:
+                print("> There is no reminders to send.")
+                return
+
+            message = MIMEMultipart()
+            message['Subject'] = "### LEMBRETES ###"
+            message['From'] = mail
+            message['To'] = mail
+            body = "\n".join([f"> {r[0]}" for r in reminders])
+            #body = "\n".join([f"> {r[0]}" for r in reminders])
+            message.attach(MIMEText(body, 'plain'))
+            s = smtplib.SMTP('smtp.gmail.com', 587)
+            s.starttls()
+            s.login(mail, passw)
+            s.send_message(message)
+            print(f"> SUCCESS - Mail")
+        except Exception as e:
+            print(f"> Error: {str(e)}.")
+        finally:
+            if 's' in locals():
+                s.quit()
+
+    if type == 'mail' or type == 'Mail' or type == 'MAIL':
+        send_mail()
+    
+    if type == 'telegram' or type == 'Telegram' or type == 'TELEGRAM':
+        send_telegram()
+
+    if type == '':
+        send_mail()
+        send_telegram()
 
 if __name__ == "__main__":
     cli(prog_name='main')
