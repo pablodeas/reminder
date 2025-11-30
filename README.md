@@ -76,9 +76,14 @@ python main.py delete ID
 python main.py clear
 
 # Enviar lembretes (opções disponíveis)
-python main.py send                    # Envia para E-mail e Telegram
+python main.py send                   # Envia para E-mail e Telegram
 python main.py send mail              # Envia apenas por E-mail
 python main.py send telegram          # Envia apenas para Telegram
+
+# Verificar o calendário
+python main.py calendar               # Exibe o calendário da data atual
+python main.py calendar 3 1998        # Exibe calendário de março de 1998.
+
 ```
 
 ### Opções de Envio
@@ -88,6 +93,19 @@ O comando `send` agora oferece três modos de operação:
 - **Sem parâmetro**: Envia lembretes tanto por E-mail quanto para Telegram
 - **`mail`**: Envia lembretes apenas por E-mail
 - **`telegram`**: Envia lembretes apenas para o Telegram
+
+### Atalhos
+
+O programa agora também conta com atalhos:
+
+```bash
+python main.py l        # Listar
+python main.py i        # Inserir
+python main.py d        # Deletar um ou vários registros
+python main.py c        # Apagar todos os registros
+python main.py s        # Enviar os registros
+python main.py cal      # Calendário da data atual
+```
 
 ## Link Simbólico (Opcional)
 
@@ -108,6 +126,8 @@ reminder clear
 reminder send
 reminder send mail
 reminder send telegram
+reminder calendar
+reminder calendar 3 1998
 ```
 
 ## Funcionalidades

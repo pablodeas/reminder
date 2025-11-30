@@ -4,7 +4,7 @@
 #   Created:        29/11/2024
 #   Version:        0.0.8
 #   Objective:      Program to send reminders in a specific time to remind me of stuffs
-#   Last Change:    Added calendar, aliases and time in list and calendar.
+#   Last Change:    Added calendar, aliases and time.
 
 """
     TODO:
