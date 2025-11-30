@@ -2,9 +2,9 @@
 
 #   Author:         Pablo Andrade
 #   Created:        29/11/2024
-#   Version:        0.0.5
+#   Version:        0.0.8
 #   Objective:      Program to send reminders in a specific time to remind me of stuffs
-#   Last Change:    Added option to choose to send only to E-mail, Telegram or both.
+#   Last Change:    Added calendar, aliases and time in list and calendar.
 
 """
     TODO:
@@ -15,10 +15,12 @@ import click
 import os
 import psycopg2
 import requests
+import calendar
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from load_dotenv import load_dotenv
 from typing import Optional, Dict, Any
+from datetime import datetime
 
 load_dotenv()
 
@@ -34,7 +36,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 if not mail or not passw:
-    print(f"> Variable MAIL or PASSW not found.")
+    print(f"Variable MAIL or PASSW not found.")
     exit(1)
 
 def connect_db(cur, conn):
@@ -84,28 +86,43 @@ def send_telegram_message(
 
 @click.group()
 def cli():
-    """> Send Mail to remind off stuff."""
+    """Save reminders and send to Telegram, Mail or both."""
     pass
 
-@cli.command(help="> List reminders.")
+@cli.command('list')
 def list():
+    """List records.
+
+    Usage:\n
+        reminder list\n
+        reminder l
+    """
     try:
+        tdy = datetime.now().strftime("%B %d, %Y   %H:%M:%S")
         cur, conn = connect_db(None, None)
-        cur.execute("select Id, Message, TO_CHAR(Creation_Date, 'dd/mm') from public.reminder order by Message asc")
+        cur.execute("select Id, Message, TO_CHAR(Creation_Date, 'dd/mm') from public.reminder order by Id asc")
         rows = cur.fetchall()
 
+        print()
+        print(tdy)
+        print()
         for i in rows:
-            #print(f"> Id: {i[0]} | Message: {i[1]} | Date: {i[2]}")
-            print(f"> Id: {i[0]} | Message: {i[1]}")
+            print(f"Id: {i[0]}   {i[1]}")
                 
         conn.commit()
 
     except Exception as e:
-        print(f"> An error occurred: {e}")
+        print(f"An error occurred: {e}")
 
-@cli.command(help="> Insert a new reminder")
+@cli.command('insert')
 @click.argument('message', type=str)
 def insert(message):
+    """Insert a new record.
+
+    Usage:\n
+        reminder insert "New Record."\n
+        reminder i "New Record."
+    """
     try:
         cur, conn = connect_db(None, None)
         message = message.strip()
@@ -115,28 +132,40 @@ def insert(message):
             """,
             (message,))
         conn.commit()
-        print(f"> Reminder > {message} < inserted.")
+        print(f"{message} inserted.")
                 
     except Exception as e:
-        print(f"> An error occurred: {e}")
+        print(f"An error occurred: {e}")
 
-@cli.command(help="Delete an item reminders.")
-@click.argument('id', type=int)
-def delete(id):
+@cli.command('delete')
+@click.argument('ids', nargs=-1, type=int)
+def delete(ids):
+    """Delete one or multiple records.
+
+    Usage:\n
+        reminder delete Id\n
+        reminder delete 10\n
+        reminder delete 10 11 12\n
+        reminder d Id\n
+        reminder d 10\n
+        reminder d 10 11 12
+    """
     try:
         cur, conn = connect_db(None, None)
         
-        # Verifica se o registro existe antes de deletar
-        cur.execute("SELECT Id FROM public.reminder WHERE Id = %s;", (id,))
-        if cur.fetchone():
-            cur.execute("DELETE FROM public.reminder WHERE Id = %s;", (id,))
-            conn.commit()
-            print(f"> Reminder > {id} < deleted.")
-        else:
-            print(f"> Reminder {id} not found.")
+        for id in ids:
+            cur.execute("SELECT Id, Message FROM public.reminder WHERE Id = %s;", (id,))
+            rows = cur.fetchall()
+            for i in rows:
+                click.echo(f"{i[1]} deleted.")
+            if rows:
+                cur.execute("DELETE FROM public.reminder WHERE Id = %s;", (id,))
+                conn.commit()
+            else:
+                print(f"{id} not found.")
 
     except Exception as e:
-        print(f"> An error occurred: {e}")
+        print(f"An error occurred: {e}")
     finally:
         # Fechar conexão com o banco de dados
         if 'cur' in locals():
@@ -144,8 +173,14 @@ def delete(id):
         if 'conn' in locals():
             conn.close()
 
-@cli.command(help="> Delete all reminders.")
+@cli.command('clear')
 def clear():
+    """Delete all records.
+
+    Usage:\n
+        reminder clear\n
+        reminder c
+    """
     try:
         cur, conn = connect_db(None, None)
         cur.execute("""
@@ -153,14 +188,48 @@ def clear():
             """,
             )
         conn.commit()
-        print(f"> Table cleared.")
+        print(f"Table cleared.")
 
     except Exception as e:
-        print(f"> An error occurred: {e}")
+        print(f"An error occurred: {e}")
 
-@cli.command(help="> Send Mail.")
+@cli.command('calendar')
+@click.argument('month', type=int, required=False)
+@click.argument('year', type=int, required=False)
+def show_calendar(month, year):
+    """Show calendar for current or specified month.
+    
+    Usage:\n
+        reminder calendar\n
+        reminder calendar 12 2024\n
+        reminder cal\n
+        reminder cal 12 2024\n
+    """
+    try:
+        now = datetime.now()
+        month = month or now.month
+        year = year or now.year
+
+        cal = calendar.month(year, month)
+        click.echo(now.strftime("\n%B %d, %Y   %H:%M:%S\n"))
+        click.echo(cal)
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+@cli.command('send')
 @click.argument('type', type=str, default='')
 def send(type):
+    """Send records to Telegram group, Mail or both.
+    
+    Usage:\n
+        reminder send telegram  # Send only to Telegram\n
+        reminder send mail      # Send only to Mail\n
+        reminder send           # Send to both\n
+        reminder s telegram     # Send only to Telegram\n
+        reminder s mail         # Send only to Mail\n
+        reminder s              # Send to both
+    """
     def list_reminders():
         try:
             cur, conn = connect_db(None, None)
@@ -169,7 +238,7 @@ def send(type):
             conn.commit()
             return reminders
         except Exception as e:
-            print(f"> Error listing reminders: {e}")
+            print(f"Error listing reminders: {e}")
             return []
     
     def send_telegram():
@@ -191,10 +260,10 @@ def send(type):
                 message=markdown_message,
                 parse_mode="Markdown"
             )
-            print("> SUCCESS - Telegram")
+            print("SUCCESS - Telegram")
     
         except Exception as e:
-            print(f"> Error: {str(e)}")
+            print(f"Error: {str(e)}")
         finally:
             if 's' in locals():
                 s.quit()
@@ -204,23 +273,22 @@ def send(type):
 
             reminders = list_reminders()
             if not reminders:
-                print("> There is no reminders to send.")
+                print("There is no reminders to send.")
                 return
 
             message = MIMEMultipart()
             message['Subject'] = "### LEMBRETES ###"
             message['From'] = mail
             message['To'] = mail
-            body = "\n".join([f"> {r[0]}" for r in reminders])
-            #body = "\n".join([f"> {r[0]}" for r in reminders])
+            body = "\n".join([f"{r[0]}" for r in reminders])
             message.attach(MIMEText(body, 'plain'))
             s = smtplib.SMTP('smtp.gmail.com', 587)
             s.starttls()
             s.login(mail, passw)
             s.send_message(message)
-            print(f"> SUCCESS - Mail")
+            print(f"SUCCESS - Mail")
         except Exception as e:
-            print(f"> Error: {str(e)}.")
+            print(f"Error: {str(e)}.")
         finally:
             if 's' in locals():
                 s.quit()
@@ -236,4 +304,10 @@ def send(type):
         send_telegram()
 
 if __name__ == "__main__":
+    cli.add_command(list, name='l')
+    cli.add_command(insert, name='i')
+    cli.add_command(delete, name='d')
+    cli.add_command(clear, name='c')
+    cli.add_command(send, name='s')
+    cli.add_command(show_calendar, name='cal')
     cli(prog_name='main')
