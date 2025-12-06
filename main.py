@@ -7,7 +7,7 @@
 #   Last Change:    Added calendar, aliases and time.
 
 """
-    TODO:
+    TODO:   
 """
 
 import smtplib
@@ -21,8 +21,13 @@ from email.mime.text import MIMEText
 from load_dotenv import load_dotenv
 from typing import Optional, Dict, Any
 from datetime import datetime
+# Database
+from database import Session, init_db
+from models import Reminder
 
 load_dotenv()
+
+init_db()
 
 passw = os.getenv("PASSWORD")
 mail = os.getenv("EMAIL")
@@ -35,14 +40,52 @@ db_port = os.getenv("PORT")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
+class Colors:
+    RESET = '\033[0m'
+    BOLD = '\033[1m'
+    DIM = '\033[2m'
+    ITALIC = '\033[3m'
+    UNDERLINE = '\033[4m'
+    
+    BLACK = '\033[30m'
+    RED = '\033[31m'
+    GREEN = '\033[32m'
+    YELLOW = '\033[33m'
+    BLUE = '\033[34m'
+    MAGENTA = '\033[35m'
+    CYAN = '\033[36m'
+    WHITE = '\033[37m'
+    
+    BG_BLACK = '\033[40m'
+    BG_RED = '\033[41m'
+    BG_GREEN = '\033[42m'
+    BG_YELLOW = '\033[43m'
+    BG_BLUE = '\033[44m'
+    BG_MAGENTA = '\033[45m'
+    BG_CYAN = '\033[46m'
+    BG_WHITE = '\033[47m'
+
 if not mail or not passw:
     print(f"Variable MAIL or PASSW not found.")
     exit(1)
 
-def connect_db(cur, conn):
-    conn = psycopg2.connect(dbname=database, user=db_user, password=db_password, host=db_host, port=int(db_port))
-    cur = conn.cursor()
-    return cur, conn
+def print_table(headers, rows):
+    col_widths = [len(h) for h in headers]
+    for row in rows:
+        for i, cell in enumerate(row):
+            col_widths[i] = max(col_widths[i], len(str(cell)))
+    print("┌" + "┬".join("─" * (w + 2) for w in col_widths) + "┐")
+    header_row = "│"
+    for i, header in enumerate(headers):
+        header_row += f" {Colors.BOLD}{header.ljust(col_widths[i])}{Colors.RESET} │"
+    print(header_row)
+    print("├" + "┼".join("─" * (w + 2) for w in col_widths) + "┤")
+    for row in rows:
+        data_row = "│"
+        for i, cell in enumerate(row):
+            data_row += f" {str(cell).ljust(col_widths[i])} │"
+        print(data_row)
+    print("└" + "┴".join("─" * (w + 2) for w in col_widths) + "┘")
 
 def send_telegram_message(
     bot_token: str,
@@ -97,45 +140,64 @@ def list():
         reminder list\n
         reminder l
     """
+    session = Session()
     try:
         tdy = datetime.now().strftime("%B %d, %Y   %H:%M:%S")
-        cur, conn = connect_db(None, None)
-        cur.execute("select Id, Message, TO_CHAR(Creation_Date, 'dd/mm') from public.reminder order by Id asc")
-        rows = cur.fetchall()
-
-        print()
-        print(tdy)
-        print()
-        for i in rows:
-            print(f"Id: {i[0]}   {i[1]}")
-                
-        conn.commit()
-
+        rem = session.query(Reminder).order_by(Reminder.event_date.asc()).all()
+        
+        print(f"\n{Colors.WHITE}{tdy}{Colors.RESET}\n")
+        
+        if not rem:
+            print(f"{Colors.YELLOW}⚠{Colors.RESET} Empty.\n")
+            return
+        
+        headers = ["ID", "Date", "Message"]
+        rows = []
+        
+        for reminder in rem:
+            event_date = reminder.display_event_date() if hasattr(reminder, 'display_event_date') else (
+                reminder.event_date.strftime("%d/%m/%Y") if reminder.event_date else "Sem data"
+            )
+            rows.append([
+                str(reminder.id),
+                event_date,
+                reminder.message or ''
+            ])
+        print_table(headers, rows)
+        
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"{Colors.RED}✗{Colors.RESET} Error: {Colors.RED}{Colors.BOLD}{e}{Colors.RESET}")
+    finally:
+        session.close()
 
 @cli.command('insert')
 @click.argument('message', type=str)
-def insert(message):
+@click.argument('event_date', required=False, default=None)
+def insert(message, event_date):
     """Insert a new record.
 
     Usage:\n
         reminder insert "New Record."\n
+        reminder insert "New Record" "Date"\n
         reminder i "New Record."
+        reminder i "New Record" "Date"\n
     """
+    
+    session = Session()
     try:
-        cur, conn = connect_db(None, None)
-        message = message.strip()
-        cur.execute("""
-            insert into public.reminder (message)
-            VALUES (%s);
-            """,
-            (message,))
-        conn.commit()
-        print(f"{message} inserted.")
-                
+        new_rem = Reminder(
+            message=message,
+            event_date=event_date if event_date is not None else None
+        )
+        session.add(new_rem)
+        session.commit()
+        print(f"\n{Colors.GREEN}{Colors.BOLD}{message} inserted.{Colors.RESET}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        session.rollback()
+        print(f"{Colors.RED}✗{Colors.RESET} Error: {Colors.RED}{Colors.BOLD}{e}{Colors.RESET}")
+    finally:
+        session.close()
+
 
 @cli.command('delete')
 @click.argument('ids', nargs=-1, type=int)
@@ -150,28 +212,23 @@ def delete(ids):
         reminder d 10\n
         reminder d 10 11 12
     """
+    session = Session()
     try:
-        cur, conn = connect_db(None, None)
-        
         for id in ids:
-            cur.execute("SELECT Id, Message FROM public.reminder WHERE Id = %s;", (id,))
-            rows = cur.fetchall()
-            for i in rows:
-                click.echo(f"{i[1]} deleted.")
-            if rows:
-                cur.execute("DELETE FROM public.reminder WHERE Id = %s;", (id,))
-                conn.commit()
+            reminder = session.query(Reminder).filter_by(id=id).first()            
+            if reminder:
+                message = reminder.message or ''
+                session.delete(reminder)
+                print(f"\n{Colors.GREEN}{Colors.BOLD}{message} deleted.{Colors.RESET}")
             else:
-                print(f"{id} not found.")
-
+                print(f"\nID {id} not found.")
+        session.commit()
+                
     except Exception as e:
-        print(f"An error occurred: {e}")
+        session.rollback()
+        print(f"{Colors.RED}✗{Colors.RESET} Error: {Colors.RED}{Colors.BOLD}{e}{Colors.RESET}")
     finally:
-        # Fechar conexão com o banco de dados
-        if 'cur' in locals():
-            cur.close()
-        if 'conn' in locals():
-            conn.close()
+        session.close()
 
 @cli.command('clear')
 def clear():
@@ -181,17 +238,22 @@ def clear():
         reminder clear\n
         reminder c
     """
+    session = Session()
     try:
-        cur, conn = connect_db(None, None)
-        cur.execute("""
-            DELETE FROM public.reminder;
-            """,
-            )
-        conn.commit()
-        print(f"Table cleared.")
-
+        count = session.query(Reminder).count()
+        
+        if count == 0:
+            print(f"\n{Colors.GREEN}{Colors.BOLD}Table is already empty.{Colors.RESET}")
+        else:
+            session.query(Reminder).delete()
+            session.commit()
+            print(f"\n{Colors.GREEN}{Colors.BOLD}Table cleared. {count} record(s) deleted.{Colors.RESET}")
+            
     except Exception as e:
-        print(f"An error occurred: {e}")
+        session.rollback()
+        print(f"{Colors.RED}✗{Colors.RESET} Error: {Colors.RED}{Colors.BOLD}{e}{Colors.RESET}")
+    finally:
+        session.close()
 
 @cli.command('calendar')
 @click.argument('month', type=int, required=False)
@@ -215,7 +277,7 @@ def show_calendar(month, year):
         click.echo(cal)
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"{Colors.RED}✗{Colors.RESET} Error: {Colors.RED}{Colors.BOLD}{e}{Colors.RESET}")
 
 @cli.command('send')
 @click.argument('type', type=str, default='')
@@ -231,15 +293,15 @@ def send(type):
         reminder s              # Send to both
     """
     def list_reminders():
+        session = Session()
         try:
-            cur, conn = connect_db(None, None)
-            cur.execute("SELECT Message, TO_CHAR(Creation_Date, 'dd/mm/YYYY') FROM public.reminder ORDER BY Message ASC")
-            reminders = cur.fetchall()
-            conn.commit()
+            reminders = session.query(Reminder).order_by(Reminder.id.asc()).all()
             return reminders
         except Exception as e:
-            print(f"Error listing reminders: {e}")
+            print(f"An error occurred: {e}")
             return []
+        finally:
+            session.close()
     
     def send_telegram():
         try:
@@ -248,8 +310,8 @@ def send(type):
                 markdown_message = "📋 *LEMBRETES DO DIA*\n"
                 markdown_message += "═" * 25 + "\n"
                 for i, reminder in enumerate(reminders, 1):
-                    #markdown_message += f"🔹 *{i}.* {reminder[0]}\n\n"
-                    markdown_message += f"🔹{reminder[0]}\n"
+                    msg = reminder.message or ''
+                    markdown_message += f"🔹 *{i}.* {msg}\n"
                 markdown_message += "─" * 25 + "\n"
             else:
                 markdown_message = "✅ *Nenhum lembrete para hoje!*\n\n🎉 Você está em dia!"
@@ -263,7 +325,7 @@ def send(type):
             print("SUCCESS - Telegram")
     
         except Exception as e:
-            print(f"Error: {str(e)}")
+            print(f"{Colors.RED}✗{Colors.RESET} Error: {Colors.RED}{Colors.BOLD}{e}{Colors.RESET}")
         finally:
             if 's' in locals():
                 s.quit()
@@ -280,7 +342,7 @@ def send(type):
             message['Subject'] = "### LEMBRETES ###"
             message['From'] = mail
             message['To'] = mail
-            body = "\n".join([f"{r[0]}" for r in reminders])
+            body = "\n".join([f"{r.message or ''}" for r in reminders])
             message.attach(MIMEText(body, 'plain'))
             s = smtplib.SMTP('smtp.gmail.com', 587)
             s.starttls()
@@ -288,7 +350,7 @@ def send(type):
             s.send_message(message)
             print(f"SUCCESS - Mail")
         except Exception as e:
-            print(f"Error: {str(e)}.")
+            print(f"{Colors.RED}✗{Colors.RESET} Error: {Colors.RED}{Colors.BOLD}{e}{Colors.RESET}")
         finally:
             if 's' in locals():
                 s.quit()
