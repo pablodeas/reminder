@@ -7,3 +7,6 @@ __pycache__/
 backup_reminder.sh
 refresh_reminder.sh
 table_reminder.sql
+data/
+test*
+test.py

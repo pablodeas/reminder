@@ -4,10 +4,10 @@
 #   Created:        29/11/2024
 #   Version:        0.0.8
 #   Objective:      Program to send reminders in a specific time to remind me of stuffs
-#   Last Change:    Added calendar, aliases and time.
+#   Last Change:    fix: changed psql for sqlite3, visual and filters.
 
 """
-    TODO:   
+    TODO: 
 """
 
 import smtplib
@@ -311,7 +311,8 @@ def send(type):
                 markdown_message += "═" * 25 + "\n"
                 for i, reminder in enumerate(reminders, 1):
                     msg = reminder.message or ''
-                    markdown_message += f"🔹 *{i}.* {msg}\n"
+                    ev = reminder.event_date or ''
+                    markdown_message += f"🔹 *{i}.* {ev} {msg}\n"
                 markdown_message += "─" * 25 + "\n"
             else:
                 markdown_message = "✅ *Nenhum lembrete para hoje!*\n\n🎉 Você está em dia!"
@@ -338,11 +339,12 @@ def send(type):
                 print("There is no reminders to send.")
                 return
 
+            tdy = datetime.now().strftime("%B %d, %Y")
             message = MIMEMultipart()
-            message['Subject'] = "### LEMBRETES ###"
+            message['Subject'] = f"Lembretes - {tdy}"
             message['From'] = mail
             message['To'] = mail
-            body = "\n".join([f"{r.message or ''}" for r in reminders])
+            body = "\n".join([f"• {r.message or 'No message'} {r.event_date or ''}" for r in reminders])
             message.attach(MIMEText(body, 'plain'))
             s = smtplib.SMTP('smtp.gmail.com', 587)
             s.starttls()

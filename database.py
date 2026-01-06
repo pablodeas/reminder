@@ -1,9 +1,14 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parent
 
-engine = create_engine('sqlite:///data/database.db')
+db_path = f'{BASE_DIR}/data/database.db'
+
+#engine = create_engine('sqlite:///data/database.db')
+engine = create_engine(f'sqlite:///{db_path}')
 Base = declarative_base()
 Session = sessionmaker(bind=engine)
 
